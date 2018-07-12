@@ -23,6 +23,7 @@ import {
 } from './JerryUtils';
 import { JerryDebuggerClient } from './JerryDebuggerClient';
 import { LOG_LEVEL } from './IotjsDebuggerConstants';
+import { DebugProtocol } from 'vscode-debugprotocol';
 
 export type CompressedPointer = number;
 export type ByteCodeOffset = number;
@@ -549,7 +550,9 @@ export class JerryDebugProtocolHandler {
 
   public onBacktrace(data: Uint8Array): Breakpoint[] {
     this.logPacket('Backtrace');
-    for (let i = 1; i < data.byteLength; i += this.byteConfig.cpointerSize + 4) {
+    const total_frame = this.decodeMessage('I', data, 1);
+    this.log(`total frames: ${total_frame}`, LOG_LEVEL.VERBOSE);
+    for (let i = 5; i < data.length; i += this.byteConfig.cpointerSize + 4) {
       const breakpointData = this.decodeMessage('CI', data, i);
       this.backtrace.push(this.getBreakpoint(breakpointData).breakpoint);
     }
@@ -741,11 +744,18 @@ export class JerryDebugProtocolHandler {
     ]));
   }
 
-  public requestBacktrace(): Promise<any> {
+  public requestBacktrace(depth?: number, start?: number): Promise<any> {
     if (!this.lastBreakpointHit) {
       return Promise.reject(new Error('backtrace not allowed while app running'));
     }
-    return this.sendRequest(encodeMessage(this.byteConfig, 'BI', [SP.CLIENT.JERRY_DEBUGGER_GET_BACKTRACE, 0]));
+    this.log(`REQUESTBACKTRACE`, LOG_LEVEL.VERBOSE);
+    if (depth === undefined)  depth = 0;
+    if (start === undefined) {
+      return this.sendRequest(encodeMessage(this.byteConfig, 'BI',
+                                        [SP.CLIENT.JERRY_DEBUGGER_GET_BACKTRACE, depth]));
+    }
+    return this.sendRequest(encodeMessage(this.byteConfig, 'BII',
+                                        [SP.CLIENT.JERRY_DEBUGGER_GET_BACKTRACE, start, depth]));
   }
 
   logPacket(description: string, ignorable: boolean = false) {

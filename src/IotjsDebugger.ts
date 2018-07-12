@@ -76,7 +76,7 @@ class IotjsDebugSession extends DebugSession {
     response.body.supportsEvaluateForHovers = false;
     response.body.supportsStepBack = false;
     response.body.supportsRestartRequest = false;
-    response.body.supportsDelayedStackTraceLoading = false;
+    response.body.supportsDelayedStackTraceLoading = true;
 
     this._sourceSendingOptions = <SourceSendingOptions>{
       contextReset: false,
@@ -353,7 +353,7 @@ class IotjsDebugSession extends DebugSession {
     response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments
   ): Promise<void> {
     try {
-      const backtrace = await this._protocolhandler.requestBacktrace();
+      const backtrace = await this._protocolhandler.requestBacktrace(args.endFrame, args.startFrame);
       const stk = backtrace.map((f, i) => new StackFrame(
           1000 + i,
           f.func.name || 'global',
@@ -365,6 +365,7 @@ class IotjsDebugSession extends DebugSession {
 
       response.body = {
         stackFrames: stk,
+        totalFrames: args.levels
       };
 
       this.sendResponse(response);
